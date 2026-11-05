@@ -1,8 +1,14 @@
 node_modules/
 dist/
+gen/
 mta_archives/
 *.mtar
 .env
 .npmrc
 resources/
+srv/default-env.json
 
+
+app/*/node_modules/
+app/*/dist/
+srv/middleware/

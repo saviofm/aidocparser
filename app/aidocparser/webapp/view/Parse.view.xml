@@ -1,0 +1,206 @@
+<mvc:View
+  controllerName="aidocparser.controller.Parse"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns="sap.m"
+  xmlns:l="sap.ui.layout"
+  xmlns:f="sap.ui.layout.form"
+  xmlns:u="sap.ui.unified"
+  xmlns:core="sap.ui.core">
+
+  <Page id="parsePage" showHeader="false">
+
+    <customHeader>
+      <Bar>
+        <contentLeft>
+          <Button
+            icon="sap-icon://nav-back"
+            press=".onNavBack"
+            tooltip="{{navBack}}" />
+          <Title text="{{parseTitle}}" level="H4" />
+        </contentLeft>
+        <contentRight>
+          <Button
+            icon="sap-icon://refresh"
+            tooltip="{{newAnalysis}}"
+            press=".onReset"
+            visible="{= ${app>/step} !== 'drop' }" />
+        </contentRight>
+      </Bar>
+    </customHeader>
+
+    <content>
+
+      <MessageStrip
+        text="{app>/errorMessage}"
+        type="Error"
+        showIcon="true"
+        showCloseButton="true"
+        visible="{= !!${app>/errorMessage} }"
+        close=".onCloseError"
+        class="sapUiSmallMargin" />
+
+      <!-- ════ STEP: drop ════════════════════════════════════════════ -->
+      <VBox
+        visible="{= ${app>/step} === 'drop' &amp;&amp; !${app>/busy} }"
+        alignItems="Center"
+        class="sapUiLargeMarginTop">
+
+        <Panel width="600px" backgroundDesign="Solid" class="sapUiResponsivePadding">
+          <content>
+            <VBox alignItems="Center" class="sapUiMediumMarginTopBottom">
+              <core:Icon
+                src="sap-icon://upload-to-cloud"
+                size="4rem"
+                color="#01502D"
+                class="sapUiSmallMarginBottom" />
+              <Title text="{{dropTitle}}" level="H4" class="sapUiSmallMarginBottom" />
+              <Text text="{{dropSubtitle}}" class="sapUiTinyMarginBottom" />
+              <u:FileUploader
+                id="fileUploader"
+                uploadUrl=""
+                fileType="pdf,xlsx,xls,docx,doc,pptx,png,jpg,jpeg,webp,tiff,gif"
+                maximumFileSize="20"
+                change=".onFileSelected"
+                buttonText="{{selectFile}}"
+                style="Emphasized"
+                class="sapUiSmallMarginTop" />
+            </VBox>
+          </content>
+        </Panel>
+      </VBox>
+
+      <!-- ════ STEP: parsing ═════════════════════════════════════════ -->
+      <VBox
+        visible="{= ${app>/step} === 'parsing' }"
+        alignItems="Center"
+        class="sapUiLargeMarginTop">
+
+        <Panel width="600px" backgroundDesign="Solid" class="sapUiResponsivePadding">
+          <content>
+            <VBox alignItems="Center" class="sapUiMediumMarginTopBottom">
+              <BusyIndicator size="Large" class="sapUiSmallMarginBottom" />
+              <Title text="{{parsingTitle}}" level="H5" class="sapUiSmallMarginBottom" />
+              <Text text="{app>/parseProgress}" />
+            </VBox>
+          </content>
+        </Panel>
+      </VBox>
+
+      <!-- ════ STEP: preview ═════════════════════════════════════════ -->
+      <VBox
+        visible="{= ${app>/step} === 'preview' }"
+        class="sapUiSmallMargin">
+
+        <HBox wrap="Wrap" class="sapUiSmallMarginBottom">
+          <ObjectStatus title="{{labelFile}}"   text="{app>/fileName}"   state="Information" class="sapUiSmallMarginEnd" />
+          <ObjectStatus title="{{labelPages}}"  text="{app>/pageCount}"  state="None"        class="sapUiSmallMarginEnd" />
+          <ObjectStatus
+            title="{{labelOcr}}"
+            text="{= ${app>/hasOcr} ? '{{yes}}' : '{{no}}' }"
+            state="{= ${app>/hasOcr} ? 'Warning' : 'Success' }"
+            class="sapUiSmallMarginEnd" />
+          <ObjectStatus title="{{labelTokens}}" text="{app>/tokensUsed}" state="None"        class="sapUiSmallMarginEnd" />
+          <ObjectStatus
+            title="{{labelParser}}"
+            text="{app>/parseSource}"
+            state="{= ${app>/parseSource} === 'markitdown' ? 'Warning' : 'None' }" />
+        </HBox>
+
+        <Panel headerText="{{previewPanel}}" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
+          <content>
+            <TextArea id="previewArea" value="{app>/parsedText}" rows="20" width="100%" editable="true" />
+          </content>
+        </Panel>
+
+        <Panel headerText="{{uploadSettingsPanel}}" class="sapUiSmallMarginBottom">
+          <content>
+            <f:SimpleForm editable="true" layout="ResponsiveGridLayout" columnsL="2" columnsM="1">
+              <f:content>
+
+                <Label text="{{labelDest}}" />
+                <Select id="parsedDestSelect" change=".onParsedDestChange">
+                  <items>
+                    <core:Item key="sdm" text="{{destSdm}}" />
+                    <core:Item key="s3"  text="{{destS3}}"  />
+                  </items>
+                </Select>
+
+                <Label text="{{labelFolder}}" visible="{= ${app>/parsedDestination} === 'sdm' }" />
+                <HBox visible="{= ${app>/parsedDestination} === 'sdm' }">
+                  <Input
+                    value="{app>/selectedFolderName}"
+                    placeholder="{{folderPlaceholder}}"
+                    editable="false"
+                    width="300px"
+                    class="sapUiSmallMarginEnd" />
+                  <Button text="{{chooseFolder}}" press=".onOpenFolderPicker" type="Ghost" />
+                </HBox>
+
+                <Label text="{{labelVersion}}" />
+                <RadioButtonGroup id="uploadModeGroup" columns="2" select=".onUploadModeChange">
+                  <RadioButton id="rbParsed" text="{{versionParsed}}" selected="true" />
+                  <RadioButton id="rbRaw"    text="{{versionRaw}}" />
+                </RadioButtonGroup>
+
+              </f:content>
+            </f:SimpleForm>
+
+            <MessageStrip
+              text="{{parsedModeInfo}}"
+              type="Information"
+              showIcon="true"
+              class="sapUiSmallMargin"
+              visible="{= ${app>/uploadMode} === 'parsed' }" />
+          </content>
+        </Panel>
+
+        <HBox justifyContent="End" class="sapUiSmallMarginBottom">
+          <Button text="{{newAnalysis}}" press=".onReset"  type="Ghost"     class="sapUiSmallMarginEnd" />
+          <Button
+            text="{{confirmUpload}}"
+            press=".onUpload"
+            type="Emphasized"
+            enabled="{= ${app>/parsedDestination} !== 'sdm' || !!${app>/selectedFolderId} }" />
+        </HBox>
+      </VBox>
+
+      <!-- ════ STEP: done ════════════════════════════════════════════ -->
+      <VBox
+        visible="{= ${app>/step} === 'done' }"
+        alignItems="Center"
+        class="sapUiLargeMarginTop">
+
+        <Panel width="600px" backgroundDesign="Solid" class="sapUiResponsivePadding">
+          <content>
+            <VBox alignItems="Center" class="sapUiMediumMarginTopBottom">
+              <core:Icon src="sap-icon://accept" size="3rem" color="Positive" class="sapUiSmallMarginBottom" />
+              <Title text="{{doneTitle}}" level="H4" class="sapUiTinyMarginBottom" />
+              <Text text="{app>/doneMessage}" class="sapUiSmallMarginBottom" />
+              <Link
+                text="{{downloadOriginal}}"
+                href="{app>/originalPresignedUrl}"
+                target="_blank"
+                visible="{= !!${app>/originalPresignedUrl} }"
+                class="sapUiSmallMarginBottom" />
+              <Button text="{{anotherUpload}}" press=".onReset" type="Emphasized" class="sapUiSmallMarginTop" />
+            </VBox>
+          </content>
+        </Panel>
+      </VBox>
+
+    </content>
+
+    <footer>
+      <Bar>
+        <contentLeft>
+          <Button icon="sap-icon://home" text="{{tabBrowse}}" press=".onNavBack" />
+          <Button icon="sap-icon://upload-to-cloud" text="{{tabParse}}" type="Emphasized" class="sapUiSmallMarginBegin" />
+        </contentLeft>
+      </Bar>
+    </footer>
+
+  </Page>
+
+  <core:Fragment fragmentName="aidocparser.view.FolderPickerDialog" type="XML" />
+
+</mvc:View>

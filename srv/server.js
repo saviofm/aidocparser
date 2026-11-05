@@ -1,40 +1,39 @@
-'use strict';
-const express = require('express');
-const multer = require('multer');
-const xssec = require('@sap/xssec');
-const passport = require('passport');
+'use strict'
 
-const parseRouter = require('./routes/parse');
-const uploadRouter = require('./routes/upload');
-const documentsRouter = require('./routes/documents');
+const cds = require('@sap/cds')
+const multer = require('multer')
 
-const app = express();
-app.use(express.json());
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
-const services = JSON.parse(process.env.VCAP_SERVICES || '{}');
-const xsuaaService = (services.xsuaa || [])[0];
+cds.on('bootstrap', (app) => {
+  // ── File manager upload/download (streaming, não passa por CDS action) ──
+  app.post('/api/files/upload', upload.array('files'), async (req, res) => {
+    const svc = await cds.connect.to('FileManagerService')
+    return svc._handleUpload(req, res)
+  })
+  app.get('/api/files/download', async (req, res) => {
+    const svc = await cds.connect.to('FileManagerService')
+    return svc._handleDownload(req, res)
+  })
 
-if (xsuaaService) {
-  const xsuaaConfig = xsuaaService.credentials;
-  passport.use('JWT', new xssec.JWTStrategy(xsuaaConfig));
-  app.use(passport.initialize());
-  app.use(passport.authenticate('JWT', { session: false }));
-} else {
-  // desenvolvimento local: skip auth
-  app.use((req, _res, next) => {
-    req.user = { user_name: 'local-dev', scopes: [] };
-    next();
-  });
-}
+  // ── Parse upload (multipart com arquivo original) ───────────────────────
+  app.post('/api/parse/uploadDocument', upload.single('file'), async (req, res) => {
+    const svc = await cds.connect.to('ParserService')
+    return svc._handleUploadDocument(req, res)
+  })
 
-// ── Routes ───────────────────────────────────────────────────────────────────
-app.use('/api/parse', parseRouter);
-app.use('/api/upload', uploadRouter);
-app.use('/api/documents', documentsRouter);
+  // ── Parse (somente análise, sem persistir) ──────────────────────────────
+  app.post('/api/parse/parseFile', upload.single('file'), async (req, res) => {
+    const svc = await cds.connect.to('ParserService')
+    return svc._handleParseFile(req, res)
+  })
 
-app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'aidocparser-srv' }));
+  // ── Health ──────────────────────────────────────────────────────────────
+  app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'aidocparser-srv' }))
+})
 
-// ── Start ────────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`aidocparser-srv listening on ${PORT}`));
+cds.once('listening', ({ server }) => {
+  server.keepAliveTimeout = 3 * 60 * 1000
+})
+
+module.exports = cds.server

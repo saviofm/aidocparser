@@ -1,46 +1,53 @@
 _schema-version: "3.2"
 ID: aidocparser
-description: AI Document Parser — parse intelligente de documentos para grounding RAG
-version: 0.0.1
+description: AI Document Parser — parse inteligente de documentos para grounding RAG
+version: 1.0.0
+
+parameters:
+  enable-parallel-deployments: true
+  deploy_mode: html5-repo
+
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm install --prefix srv
+        - npx cds build --production
+        - npm install --prefix app/aidocparser
 
 modules:
-  # ── Approuter (managed) ──────────────────────────────────────────────────
-  - name: aidocparser-approuter
-    type: approuter.nodejs
-    path: approuter
-    parameters:
-      disk-quota: 256M
-      memory: 256M
-    requires:
-      - name: aidocparser-uaa
-      - name: aidocparser-destination-service
-      - name: aidocparser-srv-api
-    build-parameters:
-      no-source: true
 
-  # ── Backend Express (parsers + storage) ──────────────────────────────────
+  # ── Backend CAP ───────────────────────────────────────────────────────────
   - name: aidocparser-srv
     type: nodejs
-    path: srv
+    path: gen/srv
     parameters:
       disk-quota: 1024M
       memory: 512M
+      buildpack: nodejs_buildpack
     requires:
       - name: aidocparser-uaa
+      - name: aidocparser-db
       - name: default_aicore
       - name: aidocparser-object-store
-      - name: sdm-instance
+      - name: aidocparser-sdm
     provides:
       - name: aidocparser-srv-api
         properties:
           srv-url: ${default-url}
     build-parameters:
       builder: npm
-      build-result: .
-      commands:
-        - npm ci --production
 
-  # ── UI5 app content → HTML5 Repo ─────────────────────────────────────────
+  # ── HANA DB deployer ─────────────────────────────────────────────────────
+  - name: aidocparser-db-deployer
+    type: hdb
+    path: gen/db
+    parameters:
+      buildpack: nodejs_buildpack
+    requires:
+      - name: aidocparser-db
+
+  # ── Destination content ───────────────────────────────────────────────────
   - name: aidocparser-destination-content
     type: com.sap.application.content
     requires:
@@ -55,6 +62,7 @@ modules:
         parameters:
           service-key:
             name: aidocparser-uaa-key
+      - name: aidocparser-srv-api
     parameters:
       content:
         instance:
@@ -68,10 +76,17 @@ modules:
               ServiceInstanceName: aidocparser-xsuaa-service
               ServiceKeyName: aidocparser-uaa-key
               sap.cloud.service: aidocparser
+            - Authentication: OAuth2UserTokenExchange
+              Name: aidocparser_srv
+              ServiceInstanceName: aidocparser-xsuaa-service
+              ServiceKeyName: aidocparser-uaa-key
+              URL: ~{aidocparser-srv-api/srv-url}
+              sap.cloud.service: aidocparser
           existing_destinations_policy: update
     build-parameters:
       no-source: true
 
+  # ── UI5 app deployer (HTML5 Application Repository) ───────────────────────
   - name: aidocparser-app-content
     type: com.sap.application.content
     path: .
@@ -89,7 +104,7 @@ modules:
 
   - name: aidocparser-webapp
     type: html5
-    path: webapp
+    path: app/aidocparser
     build-parameters:
       build-result: dist
       builder: custom
@@ -107,6 +122,33 @@ resources:
       service: xsuaa
       service-name: aidocparser-xsuaa-service
       service-plan: application
+      config:
+        xsappname: aidocparser-${org}-${space}
+        tenant-mode: dedicated
+
+  # ── HANA Cloud (HDI container) ────────────────────────────────────────────
+  - name: aidocparser-db
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-name: aidocparser-hana
+      service-plan: hdi-shared
+
+  # ── Object Store (S3-compatible) ─────────────────────────────────────────
+  - name: aidocparser-object-store
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: objectstore
+      service-name: aidocparser-object-store
+      service-plan: s3-standard
+
+  # ── SDM — reutiliza a instância existente da org (build-runtime)
+  # O plano "standard" não existe nesta subaccount; "build-runtime" é o disponível.
+  # Usar a instância já provisionada ao invés de criar uma nova.
+  - name: aidocparser-sdm
+    type: org.cloudfoundry.existing-service
+    parameters:
+      service-name: document-management-standard-service
 
   # ── HTML5 Repo ───────────────────────────────────────────────────────────
   - name: aidocparser-repo-host
@@ -115,13 +157,6 @@ resources:
       service: html5-apps-repo
       service-name: aidocparser-html5-service
       service-plan: app-host
-
-  - name: aidocparser-html5-runtime
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: html5-apps-repo
-      service-name: aidocparser-html5-runtime
-      service-plan: app-runtime
 
   # ── Destination ──────────────────────────────────────────────────────────
   - name: aidocparser-destination-service
@@ -133,23 +168,18 @@ resources:
       config:
         HTML5Runtime_enabled: true
         version: 1.0.0
+        init_data:
+          instance:
+            destinations:
+              - Authentication: NoAuthentication
+                Name: ui5
+                ProxyType: Internet
+                Type: HTTP
+                URL: https://ui5.sap.com
+            existing_destinations_policy: update
 
-  # ── Serviços existing ────────────────────────────────────────────────────
+  # ── AI Core — existing (compartilhado da org) ─────────────────────────────
   - name: default_aicore
     type: org.cloudfoundry.existing-service
     parameters:
       service-name: default_aicore
-
-  - name: aidocparser-object-store
-    type: org.cloudfoundry.existing-service
-    parameters:
-      service-name: aidocparser-object-store   # SAP Object Store (S3-compatible)
-
-  - name: sdm-instance
-    type: org.cloudfoundry.existing-service
-    parameters:
-      service-name: document-management-standard-service
-
-parameters:
-  deploy_mode: html5-repo
-  enable-parallel-deployments: true

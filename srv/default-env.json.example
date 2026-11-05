@@ -1,0 +1,42 @@
+{
+  "VCAP_SERVICES": {
+    "objectstore": [
+      {
+        "name": "aidocparser-object-store",
+        "credentials": {
+          "access_key_id": "REPLACE_ME",
+          "secret_access_key": "REPLACE_ME",
+          "bucket": "REPLACE_ME",
+          "host": "s3.amazonaws.com",
+          "region": "us-east-1"
+        }
+      }
+    ],
+    "aicore": [
+      {
+        "name": "default_aicore",
+        "credentials": {
+          "clientid": "REPLACE_ME",
+          "clientsecret": "REPLACE_ME",
+          "url": "https://REPLACE_ME.authentication.us10.hana.ondemand.com",
+          "serviceurls": {
+            "AI_API_URL": "https://api.ai.internalprod.eu-central-1.aws.ml.hana.ondemand.com"
+          }
+        }
+      }
+    ],
+    "document-management-repository": [
+      {
+        "name": "aidocparser-sdm-service",
+        "credentials": {
+          "uri": "https://api-sdm-di.cfapps.us10.hana.ondemand.com",
+          "uaa": {
+            "url": "https://REPLACE_ME.authentication.us10.hana.ondemand.com",
+            "clientid": "REPLACE_ME",
+            "clientsecret": "REPLACE_ME"
+          }
+        }
+      }
+    ]
+  }
+}

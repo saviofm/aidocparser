@@ -1,0 +1,162 @@
+<mvc:View
+  controllerName="aidocparser.controller.Home"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core">
+
+  <Page id="homePage" showHeader="false">
+
+    <customHeader>
+      <Bar>
+        <contentLeft>
+          <Title text="{{appTitle}}" level="H4" />
+        </contentLeft>
+        <contentMiddle>
+          <Breadcrumbs id="breadcrumbs" />
+        </contentMiddle>
+        <contentRight>
+          <SearchField
+            width="220px"
+            search=".onSearch"
+            liveChange=".onSearch"
+            placeholder="{{searchPlaceholder}}" />
+          <SegmentedButton
+            id="typeFilter"
+            selectionChange=".onTypeFilter"
+            class="sapUiSmallMarginBegin">
+            <items>
+              <SegmentedButtonItem key="all"    text="{{filterAll}}"     />
+              <SegmentedButtonItem key="folder" icon="sap-icon://folder" />
+              <SegmentedButtonItem key="file"   icon="sap-icon://document" />
+            </items>
+          </SegmentedButton>
+          <Button
+            icon="sap-icon://add-folder"
+            tooltip="{{createFolder}}"
+            press=".onCreateFolder"
+            class="sapUiSmallMarginBegin" />
+          <Button
+            icon="sap-icon://upload"
+            tooltip="{{uploadAndParse}}"
+            type="Emphasized"
+            press=".onNavigateParse"
+            class="sapUiSmallMarginBegin" />
+        </contentRight>
+      </Bar>
+    </customHeader>
+
+    <content>
+      <BusyIndicator visible="{home>/busy}" size="Large" class="sapUiLargeMarginTop" />
+
+      <Table
+        id="filesTable"
+        items="{home>/filteredItems}"
+        visible="{= !${home>/busy} }"
+        mode="MultiSelect"
+        selectionChange=".onSelectionChange"
+        noDataText="{{noFiles}}">
+
+        <headerToolbar>
+          <OverflowToolbar>
+            <Title text="{{filesTitle}}" level="H5" />
+            <ToolbarSpacer />
+            <Button
+              text="{{deleteSelected}}"
+              icon="sap-icon://delete"
+              type="Reject"
+              press=".onDeleteSelected"
+              visible="{= ${home>/selectedItems}.length > 0 }" />
+          </OverflowToolbar>
+        </headerToolbar>
+
+        <columns>
+          <Column hAlign="Begin" width="auto"><Text text="{{colName}}" /></Column>
+          <Column hAlign="Center" width="6rem"><Text text="{{colType}}" /></Column>
+          <Column hAlign="End"    width="7rem"><Text text="{{colSize}}" /></Column>
+          <Column hAlign="Center" width="9rem"><Text text="{{colParsed}}" /></Column>
+          <Column hAlign="End"    width="12rem"><Text text="{{colModified}}" /></Column>
+          <Column hAlign="Center" width="9rem" />
+        </columns>
+
+        <items>
+          <ColumnListItem
+            type="Active"
+            press=".onItemPress">
+            <cells>
+              <!-- Nome + ícone -->
+              <HBox alignItems="Center">
+                <core:Icon
+                  src="{= ${home>isFolder} ? 'sap-icon://folder' : 'sap-icon://document' }"
+                  color="{= ${home>isFolder} ? '#f0ab00' : '#0070f2' }"
+                  class="sapUiSmallMarginEnd" />
+                <Text text="{home>name}" wrapping="false" />
+              </HBox>
+              <!-- Tipo -->
+              <ObjectStatus
+                text="{= ${home>isFolder} ? 'Pasta' : 'Arquivo' }"
+                state="{= ${home>isFolder} ? 'Warning' : 'None' }" />
+              <!-- Tamanho -->
+              <Text text="{
+                path: 'home>size',
+                formatter: '.formatFileSize'
+              }" />
+              <!-- Badge SDM/S3 do doc parseado -->
+              <ObjectStatus
+                text="{home>parsedDestination}"
+                state="{= ${home>parsedDestination} === 'sdm' ? 'Success' : 'Information' }"
+                visible="{= !!${home>parsedDestination} }" />
+              <!-- Data modificação -->
+              <Text text="{
+                path: 'home>lastModified',
+                formatter: '.formatDate'
+              }" />
+              <!-- Ações -->
+              <HBox>
+                <Button
+                  icon="sap-icon://download"
+                  tooltip="{{download}}"
+                  press=".onDownload"
+                  visible="{= !${home>isFolder} }"
+                  type="Transparent" />
+                <Button
+                  icon="sap-icon://chain-link"
+                  tooltip="{{presignedUrl}}"
+                  press=".onCopyPresigned"
+                  visible="{= !${home>isFolder} &amp;&amp; !!${home>parsedRef} }"
+                  type="Transparent" />
+                <Button
+                  icon="sap-icon://delete"
+                  tooltip="{{deleteDoc}}"
+                  press=".onDeleteItem"
+                  type="Transparent" />
+              </HBox>
+            </cells>
+          </ColumnListItem>
+        </items>
+      </Table>
+    </content>
+
+    <!-- Tab bar inferior -->
+    <footer>
+      <Bar>
+        <contentLeft>
+          <Button
+            icon="sap-icon://home"
+            text="{{tabBrowse}}"
+            press=".onTabBrowse"
+            type="Emphasized" />
+          <Button
+            icon="sap-icon://upload-to-cloud"
+            text="{{tabParse}}"
+            press=".onNavigateParse"
+            class="sapUiSmallMarginBegin" />
+        </contentLeft>
+        <contentRight>
+          <Text text="{= ${home>/items}.length + ' {{itemsCount}}'}" />
+        </contentRight>
+      </Bar>
+    </footer>
+
+  </Page>
+
+</mvc:View>

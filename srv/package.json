@@ -1,29 +1,37 @@
 {
   "name": "aidocparser-srv",
-  "version": "0.0.1",
-  "description": "AI Document Parser — backend Express",
+  "version": "1.0.0",
+  "description": "AI Document Parser — CAP Node.js backend",
   "main": "server.js",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "cds-serve",
+    "dev": "cds watch",
+    "mcp": "node mcp-server.js"
   },
   "dependencies": {
-    "@sap-ai-sdk/core": "^2.11.0",
-    "@sap-ai-sdk/orchestration": "^2.17.0",
+    "@aws-sdk/client-s3": "^3",
+    "@aws-sdk/s3-request-presigner": "^3",
+    "@modelcontextprotocol/sdk": "^1",
+    "@sap/cds": "^8",
     "@sap/xssec": "^4",
-    "aws-sdk": "^2.1691.0",
     "axios": "^1",
     "exceljs": "^4",
     "express": "^4",
+    "form-data": "^4",
+    "jszip": "^3",
     "mammoth": "^1",
     "multer": "^1",
+    "officeparser": "^8",
     "passport": "^0.7",
     "pdf-parse": "^1",
     "pdfjs-dist": "^4",
-    "sharp": "^0.33",
+    "pptx2json": "^0.0.10",
     "uuid": "^11"
+  },
+  "optionalDependencies": {
+    "canvas": "^2"
   }
 }

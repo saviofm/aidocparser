@@ -1,0 +1,38 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core">
+
+  <Dialog
+    id="folderPickerDialog"
+    title="Selecionar pasta de destino"
+    contentWidth="400px"
+    draggable="true">
+
+    <content>
+      <BusyIndicator id="folderBusy" visible="{app>/folderBusy}" />
+      <Tree
+        id="folderTree"
+        items="{
+          path: 'folders>/items',
+          parameters: { arrayNames: ['children'] }
+        }"
+        itemSelect=".onFolderSelect">
+        <StandardTreeItem
+          title="{folders>name}"
+          icon="sap-icon://folder" />
+      </Tree>
+    </content>
+
+    <endButton>
+      <Button text="Cancelar" press=".onCloseFolderPicker" />
+    </endButton>
+    <beginButton>
+      <Button
+        text="Selecionar"
+        type="Emphasized"
+        press=".onConfirmFolder"
+        enabled="{= !!${app>/tempFolderId} }" />
+    </beginButton>
+  </Dialog>
+
+</core:FragmentDefinition>

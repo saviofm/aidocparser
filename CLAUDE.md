@@ -72,34 +72,42 @@ O binding expõe credenciais em `VCAP_SERVICES.objectstore[0].credentials`:
 
 ## Stack
 
-- **Frontend:** UI5 Freestyle 1.120 LTS (não React) — Work Zone nativo
-  - `webapp/` contém o app UI5 com `ui5.yaml` (dev) e `ui5-deploy.yaml` (CF build)
-  - Intent Work Zone: `DocParser-upload` (semantic object `DocParser`, action `upload`)
-- **Backend:** Node.js + Express standalone, sem CAP, sem OData
-  - `srv/` com multer para multipart, passport+xssec para auth JWT
-- **Deploy:** MTA (`mta.yaml` na raiz), managed approuter
+- **Frontend:** UI5 Freestyle 1.120 LTS (JavaScript, não TypeScript) — Work Zone nativo
+  - `app/` contém o app UI5 com `ui5.yaml` (dev) e `ui5-deploy.yaml` (CF build)
+  - Intents Work Zone: `DocParser-upload` e `DocParser-browse`
+- **Backend:** SAP CAP Node.js (`@sap/cds ^8`, `@protocol:'rest'`) — sem OData, sem Express puro
+  - Auth declarativa por role via CDS (`@requires: 'DocParserUser'`)
+  - DB: SQLite em dev, HANA (HDI container) em produção
+- **Deploy:** MTA (`mta.yaml` na raiz), approuter standalone
 
 ---
 
 ## Estrutura de arquivos chave
 
 ```
-approuter/xs-app.json       # rotas: /api → srv, /* → html5-repo
-srv/server.js               # entry: express + passport JWT
-srv/routes/parse.js         # POST /api/parse
-srv/routes/upload.js        # POST /api/upload
-srv/routes/documents.js     # GET /api/documents/folders|presigned
-srv/parsers/index.js        # dispatcher MIME type → parser
-srv/parsers/pdf.js          # pdf-parse + pdfjs-dist + OCR Vision seletivo
-srv/parsers/excel.js        # exceljs → markdown por aba
-srv/parsers/word.js         # mammoth + Vision para imagens embutidas
-srv/parsers/image.js        # Vision direto
-srv/providers/aicore-vision.js  # HTTP direto ao AI Core deployment
-srv/storage/s3-client.js    # AWS SDK v2 (putObject, getPresignedUrl, delete)
-srv/storage/sdm-client.js   # CMIS REST (listFolders, uploadFile)
-webapp/manifest.json        # intent DocParser-upload
-webapp/view/Main.view.xml   # UI: 4 steps (drop/parsing/preview/done)
-webapp/controller/Main.controller.js  # toda a lógica de fluxo
+approuter/xs-app.json            # rotas: /api → srv, /* → html5-repo
+srv/server.js                    # cds.server + rotas Express multipart via bootstrap
+srv/file-manager-service.cds     # FileManagerService @path:'/api/files' (browse S3)
+srv/file-manager-service.js      # handlers CAP + Express upload/download streaming
+srv/parser-service.cds           # ParserService @path:'/api/parse' (parse + docs)
+srv/parser-service.js            # handlers: parseFile, uploadDocument, deleteDocument
+srv/mcp-server.js                # MCP stdio server (5 tools)
+srv/lib/s3-client.js             # AWS SDK v3 (list, put, copy, delete, stream)
+srv/lib/sdm-client.js            # CMIS REST (listFolders, uploadFile, deleteFile)
+srv/lib/aicore-vision.js         # GPT Vision via AI Core HTTP direto
+srv/lib/parsers/index.js         # dispatcher: native → markitdown fallback
+srv/lib/parsers/pdf.js           # pdf-parse + pdfjs-dist + OCR seletivo
+srv/lib/parsers/excel.js         # exceljs → markdown por aba
+srv/lib/parsers/word.js          # mammoth + Vision para imagens embutidas
+srv/lib/parsers/image.js         # Vision direto
+srv/lib/parsers/pptx.js          # jszip + DrawingML + Vision para imagens
+srv/lib/parsers/markitdown-fallback.js  # subprocess markitdown-mcp (EPUB/HTML/ZIP)
+db/schema.cds                    # entidade ParsedDocument (histórico)
+app/manifest.json                # intents DocParser-upload, DocParser-browse
+app/view/Home.view.xml           # browse S3 com breadcrumb, search, delete cascata
+app/view/Parse.view.xml          # 4 steps: drop → parsing → preview → done
+app/controller/Home.controller.js
+app/controller/Parse.controller.js
 ```
 
 ---
@@ -107,20 +115,19 @@ webapp/controller/Main.controller.js  # toda a lógica de fluxo
 ## Desenvolvimento local
 
 ```bash
-# Backend
-cd srv && npm install
-# criar srv/.env com:
-# PORT=3000
-# S3_ENDPOINT=... S3_ACCESS_KEY=... S3_SECRET_KEY=... S3_BUCKET=...
-# AICORE_DEPLOYMENT_ID=d7a09bc4d6d523f7
-# AICORE_RESOURCE_GROUP=default
-node server.js
+# Backend (porta 4004, auth dummy, SQLite in-memory)
+npm install && npm install --prefix srv
+cds watch
 
-# Frontend (proxia /api → localhost:3000)
-cd webapp && npm install && npm start
+# Frontend (porta 8080, proxia /api → localhost:4004)
+npm install --prefix app && npm start --prefix app
+
+# MCP server
+node srv/mcp-server.js
 ```
 
-Para testar storage S3 localmente, obter service key da instância:
+Credenciais locais: criar `srv/default-env.json` a partir de `srv/default-env.json.example`.
+Para obter credenciais S3 reais:
 ```bash
 cf create-service-key aidocparser-object-store local-key
 cf service-key aidocparser-object-store local-key
@@ -156,28 +163,28 @@ npm run undeploy
 
 ## API endpoints
 
+### ParserService (`/api/parse`)
 | Método | Rota | Descrição |
 |---|---|---|
 | `GET` | `/health` | Liveness |
-| `POST` | `/api/parse` | `multipart` campo `file` → `{ parsedText, pageCount, type, hasOcr, tokensUsed, originalName, mimeType }` |
-| `POST` | `/api/upload` | ver campos abaixo → `{ docId, originalStorage, parsedStorage }` |
-| `GET` | `/api/documents/folders` | `?provider=sdm[&parentId=]` → array de `{ id, name }` |
-| `GET` | `/api/documents/presigned` | `?key=` → `{ presignedUrl }` (valida ownership) |
+| `POST` | `/api/parse/parseFile` | `multipart` campo `file` → `{ parsedText, pageCount, type, hasOcr, tokensUsed, parseSource }` |
+| `POST` | `/api/parse/uploadDocument` | `multipart` completo → `{ docId, originalStorage, parsedStorage }` |
+| `GET` | `/api/parse/listDocuments` | OData → lista `ParsedDocument` do usuário |
+| `DELETE` | `/api/parse/deleteDocument` | `?docId=` → cascata S3+SDM+DB |
+| `GET` | `/api/parse/presigned` | `?key=` → `{ presignedUrl }` (valida ownership) |
+| `GET` | `/api/parse/sdmFolders` | `?parentId=` → `[{ id, name }]` |
 
-### POST /api/upload — campos multipart
-
-```
-parsedText          string
-originalName        string
-mimeType            string
-pageCount           number
-hasOcr              boolean
-tokensUsed          number
-parsedDestination   "sdm" | "s3"
-folderId            string  (obrigatório se parsedDestination=sdm)
-mode                "parsed" | "raw"
-file                binary  (arquivo original, vai sempre para S3)
-```
+### FileManagerService (`/api/files`)
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/files/listFiles` | `?prefix=` → lista objetos S3 |
+| `GET` | `/api/files/getFolderTree` | árvore de pastas S3 |
+| `POST` | `/api/files/createFolder` | cria pasta |
+| `POST` | `/api/files/renameItem` | renomeia (copy+delete) |
+| `POST` | `/api/files/moveItem` | move (copy+delete) |
+| `POST` | `/api/files/deleteItem` | deleta arquivo ou pasta recursiva |
+| `GET` | `/api/files/download` | stream de download |
+| `POST` | `/api/files/upload` | upload multipart direto (sem parse) |
 
 ---
 

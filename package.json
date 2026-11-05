@@ -1,16 +1,52 @@
 {
   "name": "aidocparser",
-  "version": "0.0.1",
-  "description": "AI Document Parser — parse inteligente de documentos para grounding RAG",
+  "version": "1.0.0",
+  "description": "AI Document Parser — central de administração de documentos no SAP BTP",
   "private": true,
+  "workspaces": [
+    "srv",
+    "app/aidocparser"
+  ],
   "scripts": {
-    "start:srv": "cd srv && node server.js",
-    "start:ui": "cd webapp && npx ui5 serve --config ui5.yaml --open index.html",
+    "install:all": "npm install && npm install --prefix srv && npm install --prefix app/aidocparser",
+    "start:srv": "cds watch",
+    "start:mcp": "node srv/mcp-server.js",
+    "start:ui": "cd app/aidocparser && npm start",
+    "build:backend": "npx cds build --production",
     "build:mta": "rimraf resources mta_archives && mbt build",
     "undeploy": "cf undeploy aidocparser --delete-services --delete-service-keys"
   },
+  "cds": {
+    "requires": {
+      "db": {
+        "[development]": {
+          "kind": "sqlite",
+          "credentials": {
+            "url": ":memory:"
+          }
+        },
+        "[production]": {
+          "kind": "hana"
+        }
+      },
+      "auth": {
+        "[development]": {
+          "kind": "dummy"
+        },
+        "[production]": {
+          "kind": "xsuaa"
+        }
+      }
+    },
+    "folders": {
+      "db": "db/",
+      "srv": "srv/"
+    }
+  },
   "devDependencies": {
+    "@sap/cds-dk": "^8",
     "mbt": "^1.2",
-    "rimraf": "^5"
+    "rimraf": "^5",
+    "sqlite3": "^6.0.1"
   }
 }

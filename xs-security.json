@@ -5,11 +5,19 @@
   "scopes": [
     {
       "name": "$XSAPPNAME.DocParserUser",
-      "description": "Pode fazer upload e parse de documentos"
+      "description": "Pode fazer upload, parse e navegar seus próprios documentos"
     },
     {
       "name": "$XSAPPNAME.DocParserAdmin",
-      "description": "Acesso administrativo — ver todos os documentos, deletar"
+      "description": "Acesso administrativo — ver todos os documentos, deletar qualquer doc, configurações"
+    },
+    {
+      "name": "$XSAPPNAME.FileViewer",
+      "description": "Navegar e baixar arquivos no Object Store (S3)"
+    },
+    {
+      "name": "$XSAPPNAME.FileManager",
+      "description": "Criar, renomear, mover e deletar arquivos no Object Store (S3)"
     }
   ],
   "role-templates": [
@@ -17,7 +25,8 @@
       "name": "DocParserUser",
       "description": "Usuário padrão do Doc Parser",
       "scope-references": [
-        "$XSAPPNAME.DocParserUser"
+        "$XSAPPNAME.DocParserUser",
+        "$XSAPPNAME.FileViewer"
       ]
     },
     {
@@ -25,19 +34,23 @@
       "description": "Administrador do Doc Parser",
       "scope-references": [
         "$XSAPPNAME.DocParserUser",
-        "$XSAPPNAME.DocParserAdmin"
+        "$XSAPPNAME.DocParserAdmin",
+        "$XSAPPNAME.FileViewer",
+        "$XSAPPNAME.FileManager"
       ]
     }
   ],
   "role-collections": [
     {
       "name": "DocParser User",
+      "description": "Acesso padrão ao Doc Parser — upload, parse, navegação dos próprios documentos",
       "role-template-references": [
         "$XSAPPNAME.DocParserUser"
       ]
     },
     {
       "name": "DocParser Admin",
+      "description": "Acesso administrativo completo — todos os documentos, Object Store, configurações",
       "role-template-references": [
         "$XSAPPNAME.DocParserAdmin"
       ]
