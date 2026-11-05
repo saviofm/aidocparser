@@ -164,6 +164,14 @@ resources:
                 ProxyType: Internet
                 Type: HTTP
                 URL: https://ui5.sap.com
+              - Authentication: NoAuthentication
+                HTML5.DynamicDestination: "true"
+                HTML5.ForwardAuthToken: "true"
+                HTML5.Timeout: "60000"
+                Name: aidocparser-backend
+                ProxyType: Internet
+                Type: HTTP
+                URL: ~{srv-api/srv-url}
             existing_destinations_policy: update
 
   - name: aidocparser-object-store
