@@ -1,0 +1,16 @@
+{
+  "name": "aidocparser",
+  "version": "0.0.1",
+  "description": "AI Document Parser — parse inteligente de documentos para grounding RAG",
+  "private": true,
+  "scripts": {
+    "start:srv": "cd srv && node server.js",
+    "start:ui": "cd webapp && npx ui5 serve --config ui5.yaml --open index.html",
+    "build:mta": "rimraf resources mta_archives && mbt build",
+    "undeploy": "cf undeploy aidocparser --delete-services --delete-service-keys"
+  },
+  "devDependencies": {
+    "mbt": "^1.2",
+    "rimraf": "^5"
+  }
+}

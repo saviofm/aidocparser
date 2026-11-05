@@ -1,0 +1,52 @@
+{
+  "xsappname": "aidocparser",
+  "tenant-mode": "dedicated",
+  "description": "AI Document Parser — security profile",
+  "scopes": [
+    {
+      "name": "$XSAPPNAME.DocParserUser",
+      "description": "Pode fazer upload e parse de documentos"
+    },
+    {
+      "name": "$XSAPPNAME.DocParserAdmin",
+      "description": "Acesso administrativo — ver todos os documentos, deletar"
+    }
+  ],
+  "role-templates": [
+    {
+      "name": "DocParserUser",
+      "description": "Usuário padrão do Doc Parser",
+      "scope-references": [
+        "$XSAPPNAME.DocParserUser"
+      ]
+    },
+    {
+      "name": "DocParserAdmin",
+      "description": "Administrador do Doc Parser",
+      "scope-references": [
+        "$XSAPPNAME.DocParserUser",
+        "$XSAPPNAME.DocParserAdmin"
+      ]
+    }
+  ],
+  "role-collections": [
+    {
+      "name": "DocParser User",
+      "role-template-references": [
+        "$XSAPPNAME.DocParserUser"
+      ]
+    },
+    {
+      "name": "DocParser Admin",
+      "role-template-references": [
+        "$XSAPPNAME.DocParserAdmin"
+      ]
+    }
+  ],
+  "oauth2-configuration": {
+    "redirect-uris": [
+      "https://*.cfapps.us10-001.hana.ondemand.com/**",
+      "https://*.cfapps.us10.hana.ondemand.com/**"
+    ]
+  }
+}

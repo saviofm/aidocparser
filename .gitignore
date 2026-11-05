@@ -1,0 +1,8 @@
+node_modules/
+dist/
+mta_archives/
+*.mtar
+.env
+.npmrc
+resources/
+
