@@ -5,7 +5,7 @@
     {
       "source": "^/api/(.*)$",
       "target": "/api/$1",
-      "destination": "aidocparser_srv",
+      "destination": "aidocparser-backend",
       "authenticationType": "xsuaa",
       "csrfProtection": false
     },

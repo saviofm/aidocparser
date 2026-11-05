@@ -1,7 +1,7 @@
-_schema-version: "3.2"
+_schema-version: "3.1"
 ID: aidocparser
-description: AI Document Parser — parse inteligente de documentos para grounding RAG
 version: 1.0.0
+description: AI Document Parser — parse inteligente de documentos para grounding RAG
 
 parameters:
   enable-parallel-deployments: true
@@ -22,21 +22,22 @@ modules:
     type: nodejs
     path: gen/srv
     parameters:
-      disk-quota: 1024M
-      memory: 512M
       buildpack: nodejs_buildpack
+      memory: 512M
+      disk-quota: 1024M
+    build-parameters:
+      builder: npm
     requires:
-      - name: aidocparser-uaa
-      - name: aidocparser-db
+      - name: aidocparser-hana
+      - name: aidocparser-xsuaa
       - name: default_aicore
       - name: aidocparser-object-store
       - name: aidocparser-sdm
+      - name: aidocparser-dest
     provides:
-      - name: aidocparser-srv-api
+      - name: srv-api
         properties:
           srv-url: ${default-url}
-    build-parameters:
-      builder: npm
 
   # ── HANA DB deployer ─────────────────────────────────────────────────────
   - name: aidocparser-db-deployer
@@ -45,61 +46,65 @@ modules:
     parameters:
       buildpack: nodejs_buildpack
     requires:
-      - name: aidocparser-db
+      - name: aidocparser-hana
 
   # ── Destination content ───────────────────────────────────────────────────
-  - name: aidocparser-destination-content
+  - name: aidocparser-dest-content
     type: com.sap.application.content
+    path: .
     requires:
-      - name: aidocparser-destination-service
+      - name: aidocparser-xsuaa
+        parameters:
+          service-key:
+            name: aidocparser-xsuaa-key
+      - name: aidocparser-html5repo
+        parameters:
+          service-key:
+            name: aidocparser-html5repo-key
+      - name: srv-api
+      - name: aidocparser-dest
         parameters:
           content-target: true
-      - name: aidocparser-repo-host
-        parameters:
-          service-key:
-            name: aidocparser-repo-host-key
-      - name: aidocparser-uaa
-        parameters:
-          service-key:
-            name: aidocparser-uaa-key
-      - name: aidocparser-srv-api
     parameters:
       content:
-        instance:
+        subaccount:
           destinations:
-            - Name: aidocparser_html_repo_host
+            - Name: aidocparser-html5repo
               ServiceInstanceName: aidocparser-html5-service
-              ServiceKeyName: aidocparser-repo-host-key
+              ServiceKeyName: aidocparser-html5repo-key
               sap.cloud.service: aidocparser
             - Authentication: OAuth2UserTokenExchange
-              Name: aidocparser_uaa
+              Name: aidocparser-xsuaa
               ServiceInstanceName: aidocparser-xsuaa-service
-              ServiceKeyName: aidocparser-uaa-key
+              ServiceKeyName: aidocparser-xsuaa-key
               sap.cloud.service: aidocparser
             - Authentication: OAuth2UserTokenExchange
-              Name: aidocparser_srv
+              Name: aidocparser-backend
               ServiceInstanceName: aidocparser-xsuaa-service
-              ServiceKeyName: aidocparser-uaa-key
-              URL: ~{aidocparser-srv-api/srv-url}
+              ServiceKeyName: aidocparser-xsuaa-key
+              URL: ~{srv-api/srv-url}
+              HTML5.DynamicDestination: "true"
+              HTML5.ForwardAuthToken: "true"
+              HTML5.Timeout: "60000"
               sap.cloud.service: aidocparser
           existing_destinations_policy: update
     build-parameters:
       no-source: true
 
-  # ── UI5 app deployer (HTML5 Application Repository) ───────────────────────
-  - name: aidocparser-app-content
+  # ── UI5 app deployer ─────────────────────────────────────────────────────
+  - name: aidocparser-ui-deployer
     type: com.sap.application.content
     path: .
     requires:
-      - name: aidocparser-repo-host
+      - name: aidocparser-html5repo
         parameters:
           content-target: true
     build-parameters:
       build-result: resources
       requires:
-        - artifacts:
+        - name: aidocparser-webapp
+          artifacts:
             - aidocparser.zip
-          name: aidocparser-webapp
           target-path: resources/
 
   - name: aidocparser-webapp
@@ -114,57 +119,40 @@ modules:
       supported-platforms: []
 
 resources:
-  # ── XSUAA próprio ────────────────────────────────────────────────────────
-  - name: aidocparser-uaa
+
+  - name: aidocparser-xsuaa
     type: org.cloudfoundry.managed-service
     parameters:
-      path: ./xs-security.json
       service: xsuaa
-      service-name: aidocparser-xsuaa-service
       service-plan: application
+      service-name: aidocparser-xsuaa-service
+      path: ./xs-security.json
       config:
         xsappname: aidocparser-${org}-${space}
         tenant-mode: dedicated
 
-  # ── HANA Cloud (HDI container) ────────────────────────────────────────────
-  - name: aidocparser-db
+  - name: aidocparser-hana
     type: com.sap.xs.hdi-container
     parameters:
       service: hana
-      service-name: aidocparser-hana
       service-plan: hdi-shared
+      service-name: aidocparser-hana
 
-  # ── Object Store (S3-compatible) ─────────────────────────────────────────
-  - name: aidocparser-object-store
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: objectstore
-      service-name: aidocparser-object-store
-      service-plan: s3-standard
-
-  # ── SDM — reutiliza a instância existente da org (build-runtime)
-  # O plano "standard" não existe nesta subaccount; "build-runtime" é o disponível.
-  # Usar a instância já provisionada ao invés de criar uma nova.
-  - name: aidocparser-sdm
-    type: org.cloudfoundry.existing-service
-    parameters:
-      service-name: document-management-standard-service
-
-  # ── HTML5 Repo ───────────────────────────────────────────────────────────
-  - name: aidocparser-repo-host
+  - name: aidocparser-html5repo
     type: org.cloudfoundry.managed-service
     parameters:
       service: html5-apps-repo
-      service-name: aidocparser-html5-service
       service-plan: app-host
+      service-name: aidocparser-html5-service
 
-  # ── Destination ──────────────────────────────────────────────────────────
-  - name: aidocparser-destination-service
+  - name: aidocparser-dest
     type: org.cloudfoundry.managed-service
+    requires:
+      - name: srv-api
     parameters:
       service: destination
-      service-name: aidocparser-destination-service
       service-plan: lite
+      service-name: aidocparser-destination-service
       config:
         HTML5Runtime_enabled: true
         version: 1.0.0
@@ -178,7 +166,18 @@ resources:
                 URL: https://ui5.sap.com
             existing_destinations_policy: update
 
-  # ── AI Core — existing (compartilhado da org) ─────────────────────────────
+  - name: aidocparser-object-store
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: objectstore
+      service-name: aidocparser-object-store
+      service-plan: s3-standard
+
+  - name: aidocparser-sdm
+    type: org.cloudfoundry.existing-service
+    parameters:
+      service-name: document-management-standard-service
+
   - name: default_aicore
     type: org.cloudfoundry.existing-service
     parameters:
