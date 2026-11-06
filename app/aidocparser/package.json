@@ -1,11 +1,19 @@
 {
   "name": "aidocparser",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
     "build:cf": "ui5 build --config ui5-deploy.yaml --clean-dest --dest dist"
   },
   "devDependencies": {
     "@ui5/cli": "^4",
+    "@sap/ux-ui5-tooling": "^1",
     "ui5-task-zipper": "^3"
+  },
+  "ui5": {
+    "dependencies": [
+      "@sap/ux-ui5-tooling",
+      "ui5-task-zipper"
+    ]
   }
 }

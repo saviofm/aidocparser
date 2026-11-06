@@ -78,15 +78,6 @@ modules:
               ServiceInstanceName: aidocparser-xsuaa-service
               ServiceKeyName: aidocparser-xsuaa-key
               sap.cloud.service: aidocparser
-            - Authentication: OAuth2UserTokenExchange
-              Name: aidocparser-backend
-              ServiceInstanceName: aidocparser-xsuaa-service
-              ServiceKeyName: aidocparser-xsuaa-key
-              URL: ~{srv-api/srv-url}
-              HTML5.DynamicDestination: "true"
-              HTML5.ForwardAuthToken: "true"
-              HTML5.Timeout: "60000"
-              sap.cloud.service: aidocparser
           existing_destinations_policy: update
     build-parameters:
       no-source: true

@@ -36,8 +36,6 @@ sap.ui.define([
       }), "home");
 
       this.setModel(new JSONModel(Device), "device");
-
-      this.getRouter().initialize();
     }
   });
 });
